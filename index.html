@@ -1,220 +1,507 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATO Security Assessment Report — 2026-03-02</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6; color: #1a1a1a; background: #f5f5f5;
-        }
-        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
-        header { 
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white; padding: 40px; border-radius: 8px; margin-bottom: 30px;
-        }
-        h1 { font-size: 2em; margin-bottom: 10px; }
-        h2 { color: #16213e; margin: 30px 0 15px; padding-bottom: 8px; border-bottom: 2px solid #eee; }
-        h3 { color: #333; margin: 20px 0 10px; }
-        .meta { opacity: 0.8; font-size: 0.9em; }
-        .badge { 
-            display: inline-block; padding: 4px 12px; border-radius: 4px; font-weight: 600;
-        }
-        .badge-critical { background: #dc3545; color: white; }
-        .badge-high { background: #fd7e14; color: white; }
-        .badge-medium { background: #ffc107; color: #333; }
-        .badge-low { background: #28a745; color: white; }
-        .badge-approved { background: #17a2b8; color: white; }
-        table { width: 100%; border-collapse: collapse; margin: 15px 0; background: white; }
-        th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }
-        th { background: #f8f9fa; font-weight: 600; }
-        tr:hover { background: #f8f9fa; }
-        .check { color: #28a745; }
-        .warning { color: #ffc107; }
-        .x { color: #dc3545; }
-        ul { margin: 10px 0 10px 20px; }
-        li { margin: 8px 0; }
-        code { 
-            background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 0.9em;
-        }
-        pre { 
-            background: #1a1a2e; color: #f8f8f2; padding: 15px; border-radius: 6px; 
-            overflow-x: auto; margin: 15px 0;
-        }
-        .decision-box {
-            background: #e7f3ff; border-left: 4px solid #2196F3; padding: 20px;
-            border-radius: 4px; margin: 20px 0;
-        }
-        .footer { text-align: center; opacity: 0.6; margin-top: 40px; padding: 20px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Team Orchestration (ATO) — Deep Dive Report</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    }
+    
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    
+    .glow {
+      box-shadow: 0 0 40px rgba(56, 189, 248, 0.15);
+    }
+    
+    .state-node {
+      transition: all 0.3s ease;
+    }
+    
+    .state-node:hover {
+      transform: scale(1.05);
+    }
+    
+    .arrow {
+      animation: pulse-arrow 2s infinite;
+    }
+    
+    @keyframes pulse-arrow {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    
+    pre {
+      scrollbar-width: thin;
+      scrollbar-color: #475569 #1e293b;
+    }
+    
+    .mermaid {
+      background: transparent;
+    }
+  </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🛡️ ATO Security Assessment Report</h1>
-            <p class="meta">SEC-AUDIT-20260302-FINAL</p>
-            <p class="meta">Reviewer: COO (Operational) | Date: 2026-03-02 05:45 UTC</p>
-            <p style="margin-top: 15px;">
-                <span class="badge badge-critical">CRITICAL RISK</span>
-                <span class="badge badge-approved">APPROVED WITH REMEDIATION</span>
-            </p>
-        </header>
-
-        <section>
-            <h2>1. Verification Summary</h2>
-            <table>
-                <thead>
-                    <tr><th>Finding</th><th>Verified</th><th>Notes</th></tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>13 plaintext API keys in openclaw.json</td>
-                        <td class="check">✅ YES</td>
-                        <td>sk-*, AIza*, nvapi-*, token strings confirmed</td>
-                    </tr>
-                    <tr>
-                        <td>7 sensitive env vars exposed</td>
-                        <td class="check">✅ YES</td>
-                        <td>GEMINI_API_KEY, MOLTBOOK_API_KEY, TAVILY_API_KEY, etc.</td>
-                    </tr>
-                    <tr>
-                        <td>openclaw.json world-readable (644)</td>
-                        <td class="warning">⚠️ PARTIAL</td>
-                        <td>Currently shows 600 (may have been remediated during audit)</td>
-                    </tr>
-                    <tr>
-                        <td>update-check.json world-readable</td>
-                        <td class="check">✅ YES</td>
-                        <td>Still 644</td>
-                    </tr>
-                    <tr>
-                        <td>Chrome CDP noSandbox</td>
-                        <td class="check">✅ YES</td>
-                        <td>"noSandbox": true confirmed on port 18800</td>
-                    </tr>
-                    <tr>
-                        <td>Gateway localhost-only</td>
-                        <td class="check">✅ YES</td>
-                        <td>18789 bound to 127.0.0.1 only</td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
-
-        <section>
-            <h2>2. Risk Assessment</h2>
-            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
-                <h3 style="margin-top: 0;">⚠️ Risk Level: <span class="badge badge-critical">CRITICAL</span></h3>
-            </div>
-
-            <h3>Impact Analysis</h3>
-            <table>
-                <thead>
-                    <tr><th>Asset</th><th>Exposure</th><th>Impact</th><th>Severity</th></tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>API Keys (13 total)</td>
-                        <td>World-readable config + env</td>
-                        <td>Full compromise of AI services (Gemini, Moltbook, Tavily, Brave, OpenRouter, Nvidia); financial loss; unauthorized Telegram bot access</td>
-                        <td><span class="badge badge-critical">CRITICAL</span></td>
-                    </tr>
-                    <tr>
-                        <td>Gateway Token</td>
-                        <td>Config + env</td>
-                        <td>Internal service impersonation</td>
-                        <td><span class="badge badge-high">HIGH</span></td>
-                    </tr>
-                    <tr>
-                        <td>Browser (noSandbox)</td>
-                        <td>Running as user `ubuntu`</td>
-                        <td>Local privilege escalation if Chrome exploited</td>
-                        <td><span class="badge badge-medium">MEDIUM</span></td>
-                    </tr>
-                    <tr>
-                        <td>update-check.json</td>
-                        <td>World-readable</td>
-                        <td>Low (non-sensitive metadata)</td>
-                        <td><span class="badge badge-low">LOW</span></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>Attack Surface</h3>
-            <ul>
-                <li><strong>Oracle ARM host</strong> (publicly exposed on internet)</li>
-                <li>Any local user or process can read all API keys</li>
-                <li>If host is compromised via another vector, keys are immediately exfiltrable</li>
-                <li>No evidence of log leakage (good)</li>
-            </ul>
-        </section>
-
-        <section>
-            <h2>3. Remediation SOP (Prioritized)</h2>
-
-            <h3>P0 — IMMEDIATE (Within 24h)</h3>
-            <ul>
-                <li><strong>Rotate all 13 exposed API keys</strong> — Consider all keys COMPROMISED
-                    <br>Generate new keys for: Google/Gemini, Moltbook, Tavily, Brave Search, OpenRouter, Nvidia NIM, Telegram Bot</li>
-                <li><strong>chmod 600</strong> on all sensitive config files:</li>
-            </ul>
-            <pre>chmod 600 ~/.openclaw/openclaw.json
-chmod 600 ~/.openclaw/update-check.json
-chmod 600 ~/.openclaw/exec-approvals.json</pre>
-
-            <h3>P1 — HIGH (Within 1 Week)</h3>
-            <ul>
-                <li><strong>Review noSandbox setting</strong> — Determine if Chrome can run sandboxed; if not, document risk acceptance</li>
-                <li><strong>Implement secrets management</strong> — Consider HashiCorp Vault, AWS Secrets Manager, or env-based injection</li>
-                <li><strong>Add rotation policy</strong> — Schedule API key rotation every 90 days</li>
-            </ul>
-
-            <h3>P2 — MEDIUM (Within 1 Month)</h3>
-            <ul>
-                <li><strong>Audit other config files</strong> — Check ~/.openclaw/ for any other 644 files</li>
-                <li><strong>Network segmentation</strong> — Consider binding Chrome CDP to localhost only (already done)</li>
-                <li><strong>Alerting</strong> — Set up monitoring for config file permission changes</li>
-            </ul>
-        </section>
-
-        <section>
-            <h2>4. Review Decision</h2>
-            <table>
-                <thead>
-                    <tr><th>Criterion</th><th>Result</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>Findings accurate?</td><td class="check">✅ YES</td></tr>
-                    <tr><td>Severity appropriate?</td><td class="check">✅ YES (Critical)</td></tr>
-                    <tr><td>Remediation actionable?</td><td class="check">✅ YES</td></tr>
-                    <tr><td>Missing context?</td><td class="warning">⚠️ Minor: Would benefit from key rotation timeline</td></tr>
-                </tbody>
-            </table>
-
-            <div class="decision-box">
-                <h3 style="margin-top: 0;">✅ Decision: APPROVE WITH REMEDIATION REQUIRED</h3>
-                <p>The audit findings are verified and accurate. The risk level (CRITICAL) is appropriate given the exposure of 13 API keys in a potentially world-readable configuration.</p>
-                <p><strong>Next Action for God (Orchestrator):</strong></p>
-                <p>Approve this assessment and 派发 P0 remediation tasks to CTO immediately. Key rotation is non-negotiable — exposed keys must be treated as compromised.</p>
-            </div>
-        </section>
-
-        <section>
-            <h2>5. Handoff Confirmation</h2>
-            <ul>
-                <li><strong>Reviewed</strong>: Raw audit report + verification commands</li>
-                <li><strong>Assessed</strong>: 13 plaintext keys, file permissions, unsandboxed browser</li>
-                <li><strong>Risk Level</strong>: CRITICAL</li>
-                <li><strong>Deliverable</strong>: /home/ubuntu/.openclaw/workspace-god/artifacts/audit/sec-assessment-final.md</li>
-                <li><strong>Next Step</strong>: Approve → Dispatch to CTO for P0 remediation</li>
-            </ul>
-        </section>
-
-        <div class="footer">
-            <p>Generated: 2026-03-02 | ATO Security Assessment | OpenClaw</p>
+<body class="gradient-bg min-h-screen text-slate-200">
+  <!-- Header -->
+  <header class="border-b border-slate-700/50 py-6">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-white">Agent Team Orchestration</h1>
+          <p class="text-slate-400 mt-1">Deep Dive Analysis & Technical Report</p>
         </div>
+        <div class="text-right">
+          <span class="inline-block px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm font-medium">ATO v1.0</span>
+          <p class="text-xs text-slate-500 mt-1">Generated: 2026-03-02</p>
+        </div>
+      </div>
     </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-10 space-y-12">
+    
+    <!-- Executive Summary -->
+    <section class="card rounded-2xl p-8 glow">
+      <h2 class="text-2xl font-bold text-white mb-4"><i class="fas fa-bolt text-cyan-400 mr-3"></i>Executive Summary</h2>
+      <p class="text-slate-300 leading-relaxed">
+        Agent Team Orchestration (ATO) is a production framework for running multi-agent teams with clear roles, structured task lifecycles, and quality gates. It establishes a <strong>Role-based Hierarchy</strong> (Orchestrator → Builder → Reviewer → Ops) with formal <strong>Handoff Protocols</strong> and state-machine-driven <strong>Task Lifecycle</strong> management. Unlike basic dispatching (one-off task delegation), ATO enables sustained workflows with cross-role verification, decision logging, and async communication.
+      </p>
+    </section>
+
+    <!-- Core Principles -->
+    <section>
+      <h2 class="text-2xl font-bold text-white mb-6"><i class="fas fa-cubes text-cyan-400 mr-3"></i>Core Principles</h2>
+      
+      <!-- Role-Based Hierarchy -->
+      <div class="card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-4">1. Role-Based Hierarchy</h3>
+        
+        <div class="grid md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-purple-500/20 border border-purple-500/30 rounded-xl p-4 text-center">
+            <i class="fas fa-chess-king text-2xl text-purple-400 mb-2"></i>
+            <h4 class="font-semibold text-purple-300">Orchestrator</h4>
+            <p class="text-xs text-slate-400 mt-1">Route, track, prioritize</p>
+            <span class="text-xs text-purple-400">High-reasoning model</span>
+          </div>
+          <div class="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 text-center">
+            <i class="fas fa-hammer text-2xl text-blue-400 mb-2"></i>
+            <h4 class="font-semibold text-blue-300">Builder</h4>
+            <p class="text-xs text-slate-400 mt-1">Produce artifacts</p>
+            <span class="text-xs text-blue-400">Mid-to-top tier</span>
+          </div>
+          <div class="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 text-center">
+            <i class="fas fa-search text-2xl text-emerald-400 mb-2"></i>
+            <h4 class="font-semibold text-emerald-300">Reviewer</h4>
+            <p class="text-xs text-slate-400 mt-1">Verify quality</p>
+            <span class="text-xs text-emerald-400">Top tier</span>
+          </div>
+          <div class="bg-amber-500/20 border border-amber-500/30 rounded-xl p-4 text-center">
+            <i class="fas fa-cog text-2xl text-amber-400 mb-2"></i>
+            <h4 class="font-semibold text-amber-300">Ops</h4>
+            <p class="text-xs text-slate-400 mt-1">Cron, health, dispatch</p>
+            <span class="text-xs text-amber-400">Cheapest reliable</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/50 rounded-lg p-4 mono text-sm">
+          <p class="text-slate-400 mb-2">// Rule: One agent, one primary role</p>
+          <p><span class="text-purple-400">Orchestrator</span> → <span class="text-blue-400">Builder</span> → <span class="text-emerald-400">Reviewer</span> → <span class="text-amber-400">Ops</span></p>
+        </div>
+      </div>
+
+      <!-- Task Lifecycle -->
+      <div class="card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-4">2. Task Lifecycle (State Machine)</h3>
+        
+        <!-- ASCII Flow -->
+        <div class="bg-slate-900 rounded-xl p-6 mb-6 overflow-x-auto">
+          <pre class="text-sm mono text-cyan-300">
+┌─────────┐   ┌──────────┐   ┌────────────┐   ┌────────┐   ┌─────┐
+│ Inbox   │ → │ Assigned │ → │ In Progress│ → │ Review │ → │Done │
+└─────────┘   └──────────┘   └────────────┘   └────────┘   └─────┘
+                                                       ↓
+                                                     Failed
+          </pre>
+        </div>
+
+        <!-- State Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-700">
+                <th class="text-left py-3 px-4 text-slate-400 font-medium">State</th>
+                <th class="text-left py-3 px-4 text-slate-400 font-medium">Meaning</th>
+                <th class="text-left py-3 px-4 text-slate-400 font-medium">Owner</th>
+                <th class="text-left py-3 px-4 text-slate-400 font-medium">Transitions</th>
+              </tr>
+            </thead>
+            <tbody class="text-slate-300">
+              <tr class="border-b border-slate-800">
+                <td class="py-3 px-4"><span class="text-red-400">Inbox</span></td>
+                <td>New task, unassigned</td>
+                <td>Orchestrator</td>
+                <td>→ Assigned</td>
+              </tr>
+              <tr class="border-b border-slate-800">
+                <td class="py-3 px-4"><span class="text-orange-400">Assigned</span></td>
+                <td>Agent selected, not started</td>
+                <td>Orchestrator</td>
+                <td>→ In Progress</td>
+              </tr>
+              <tr class="border-b border-slate-800">
+                <td class="py-3 px-4"><span class="text-blue-400">In Progress</span></td>
+                <td>Agent actively working</td>
+                <td>Assigned agent</td>
+                <td>→ Review</td>
+              </tr>
+              <tr class="border-b border-slate-800">
+                <td class="py-3 px-4"><span class="text-amber-400">Review</span></td>
+                <td>Work complete, awaiting verify</td>
+                <td>Reviewer</td>
+                <td>→ Done | → In Progress (return)</td>
+              </tr>
+              <tr class="border-b border-slate-800">
+                <td class="py-3 px-4"><span class="text-green-400">Done</span></td>
+                <td>Verified and shipped</td>
+                <td>Orchestrator</td>
+                <td>Terminal</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4"><span class="text-slate-500">Failed</span></td>
+                <td>Abandoned with reason</td>
+                <td>Orchestrator</td>
+                <td>Terminal</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Handoff Protocols -->
+      <div class="card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-4">3. Handoff Protocols</h3>
+        
+        <p class="text-slate-400 mb-4">When work passes between agents, the handoff message must include:</p>
+        
+        <div class="grid md:grid-cols-5 gap-3 mb-6">
+          <div class="bg-slate-800 rounded-lg p-3 text-center">
+            <div class="text-cyan-400 font-semibold">1. What</div>
+            <div class="text-xs text-slate-500">Summary of changes</div>
+          </div>
+          <div class="bg-slate-800 rounded-lg p-3 text-center">
+            <div class="text-cyan-400 font-semibold">2. Where</div>
+            <div class="text-xs text-slate-500">Exact file paths</div>
+          </div>
+          <div class="bg-slate-800 rounded-lg p-3 text-center">
+            <div class="text-cyan-400 font-semibold">3. How</div>
+            <div class="text-xs text-slate-500">Test/verify steps</div>
+          </div>
+          <div class="bg-slate-800 rounded-lg p-3 text-center">
+            <div class="text-cyan-400 font-semibold">4. Issues</div>
+            <div class="text-xs text-slate-500">Known limitations</div>
+          </div>
+          <div class="bg-slate-800 rounded-lg p-3 text-center">
+            <div class="text-cyan-400 font-semibold">5. Next</div>
+            <div class="text-xs text-slate-500">Clear next action</div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="bg-red-900/30 border border-red-500/30 rounded-lg p-4">
+            <h4 class="text-red-400 font-semibold mb-2"><i class="fas fa-times-circle mr-2"></i>Bad Handoff</h4>
+            <p class="text-sm text-slate-400 mono">"Done, check the files."</p>
+          </div>
+          <div class="bg-green-900/30 border border-green-500/30 rounded-lg p-4">
+            <h4 class="text-green-400 font-semibold mb-2"><i class="fas fa-check-circle mr-2"></i>Good Handoff</h4>
+            <p class="text-sm text-slate-400 mono">"Built auth module at /shared/artifacts/auth/. Run npm test auth to verify. Known issue: rate limiting not implemented yet. Next: reviewer checks error handling."</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quality Gates -->
+      <div class="card rounded-2xl p-6">
+        <h3 class="text-xl font-semibold text-white mb-4">4. Quality Gates</h3>
+        
+        <div class="space-y-4">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+              <span class="text-cyan-400 text-sm font-bold">1</span>
+            </div>
+            <div>
+              <h4 class="text-white font-medium">Builders review specs</h4>
+              <p class="text-sm text-slate-400">"Is this feasible? What's missing?"</p>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+              <span class="text-cyan-400 text-sm font-bold">2</span>
+            </div>
+            <div>
+              <h4 class="text-white font-medium">Reviewers check builds</h4>
+              <p class="text-sm text-slate-400">"Does this match the spec? Edge cases?"</p>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+              <span class="text-cyan-400 text-sm font-bold">3</span>
+            </div>
+            <div>
+              <h4 class="text-white font-medium">Orchestrator reviews priorities</h4>
+              <p class="text-sm text-slate-400">"Is this the right work right now?"</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <p class="text-amber-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i><strong>Warning:</strong> Skip the review step and quality degrades within 3-5 tasks.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ATO vs Basic Dispatching -->
+    <section>
+      <h2 class="text-2xl font-bold text-white mb-6"><i class="fas fa-balance-scale text-cyan-400 mr-3"></i>ATO vs Basic Dispatching</h2>
+      
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700">
+              <th class="text-left py-3 px-4 text-slate-400 font-medium">Dimension</th>
+              <th class="text-left py-3 px-4 text-slate-400 font-medium">Basic Dispatching</th>
+              <th class="text-left py-3 px-4 text-cyan-400 font-medium">Agent Team Orchestration</th>
+            </tr>
+          </thead>
+          <tbody class="text-slate-300">
+            <tr class="border-b border-slate-800">
+              <td class="py-3 px-4 font-medium">Task Tracking</td>
+              <td class="py-3 px-4">Ad-hoc, often lost</td>
+              <td class="py-3 px-4 text-cyan-300">State machine with transitions</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="py-3 px-4 font-medium">Roles</td>
+              <td class="py-3 px-4">Implicit / assumed</td>
+              <td class="py-3 px-4 text-cyan-300">Explicit: Orchestrator, Builder, Reviewer, Ops</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="py-3 px-4 font-medium">Handoffs</td>
+              <td class="py-3 px-4">"Done, check files"</td>
+              <td class="py-3 px-4 text-cyan-300">5-point structured protocol</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="py-3 px-4 font-medium">Quality Gates</td>
+              <td class="py-3 px-4">Optional / skipped</td>
+              <td class="py-3 px-4 text-cyan-300">Mandatory cross-role reviews</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="py-3 px-4 font-medium">State Transitions</td>
+              <td class="py-3 px-4">Agent-managed (unreliable)</td>
+              <td class="py-3 px-4 text-cyan-300">Orchestrator-owned</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="py-3 px-4 font-medium">Communication</td>
+              <td class="py-3 px-4">Implicit / assumed</td>
+              <td class="py-3 px-4 text-cyan-300">Comment conventions per transition</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-medium">Use Case</td>
+              <td class="py-3 px-4">One-off delegation</td>
+              <td class="py-3 px-4 text-cyan-300">Sustained multi-agent workflows</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Workflow Patterns -->
+    <section>
+      <h2 class="text-2xl font-bold text-white mb-6"><i class="fas fa-project-diagram text-cyan-400 mr-3"></i>Workflow Patterns</h2>
+      
+      <!-- Spec → Build → Review -->
+      <div class="card rounded-2xl p-6 mb-6">
+        <h3 class="text-lg font-semibold text-white mb-4">Pattern: Spec → Review → Build → Test</h3>
+        
+        <div class="bg-slate-900 rounded-xl p-6 overflow-x-auto">
+          <pre class="text-sm mono text-cyan-300">
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│ 1. Create   │ →  │ 2. Spec     │ →  │ 3. Build    │ →  │ 4. Review   │
+│    Task     │    │    Writer   │    │    Builder  │    │    Reviewer │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+                                                               │
+                                                               ↓
+                                              ┌─────────────────────────────┐
+                                              │ 5. Done │ Return for fixes    │
+                                              └─────────────────────────────┘
+          </pre>
+        </div>
+        
+        <div class="mt-4 p-4 bg-slate-800/50 rounded-lg">
+          <p class="text-sm text-slate-400"><strong class="text-white">Key:</strong> The person who writes the spec doesn't review the build. The person who builds doesn't approve their own work. Cross-role verification is the whole point.</p>
+        </div>
+      </div>
+
+      <!-- Other Patterns Grid -->
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="card rounded-2xl p-6">
+          <h4 class="text-lg font-semibold text-white mb-3"><i class="fas fa-users text-purple-400 mr-2"></i>Parallel Research</h4>
+          <p class="text-sm text-slate-400 mb-3">Multiple agents research independently, then merge. Non-overlapping angles, mandatory merge step.</p>
+          <div class="bg-slate-900 rounded-lg p-3 mono text-xs text-slate-500">
+            Agent A → research-angle-1.md<br>
+            Agent B → research-angle-2.md<br>
+            Merge → research-final.md
+          </div>
+        </div>
+
+        <div class="card rounded-2xl p-6">
+          <h4 class="text-lg font-semibold text-white mb-3"><i class="fas fa-arrow-up text-red-400 mr-2"></i>Escalation</h4>
+          <p class="text-sm text-slate-400 mb-3">Structured escalation prevents stalling. Agent comments blocker → Orchestrator decides → Action.</p>
+          <div class="bg-slate-900 rounded-lg p-3 mono text-xs text-slate-500">
+            Blocker comment<br>
+            ↓<br>
+            Orchestrator resolves/reassigns<br>
+            ↓<br>
+            Unblock or deprioritize
+          </div>
+        </div>
+
+        <div class="card rounded-2xl p-6">
+          <h4 class="text-lg font-semibold text-white mb-3"><i class="fas fa-clock text-amber-400 mr-2"></i>Cron-Based Ops</h4>
+          <p class="text-sm text-slate-400 mb-3">Scheduled tasks: Daily standup, task dispatch, health checks. Assign to cheapest reliable agent.</p>
+          <div class="bg-slate-900 rounded-lg p-3 mono text-xs text-slate-500">
+            Ops → Standup (daily)<br>
+            Orchestrator → Dispatch (hourly)<br>
+            Ops → Health (periodic)
+          </div>
+        </div>
+
+        <div class="card rounded-2xl p-6">
+          <h4 class="text-lg font-semibold text-white mb-3"><i class="fas fa-sync-alt text-blue-400 mr-2"></i>Review Rotation</h4>
+          <p class="text-sm text-slate-400 mb-3">Prevent review fatigue and bias by rotating reviewers across builders.</p>
+          <div class="bg-slate-900 rounded-lg p-3 mono text-xs text-slate-500">
+            A's work → B reviews<br>
+            B's work → C reviews<br>
+            C's work → A reviews
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Workspace Architecture -->
+    <section>
+      <h2 class="text-2xl font-bold text-white mb-6"><i class="fas fa-folder-tree text-cyan-400 mr-3"></i>Workspace Architecture</h2>
+      
+      <div class="card rounded-2xl p-6">
+        <div class="bg-slate-900 rounded-xl p-6 overflow-x-auto">
+          <pre class="text-sm mono text-cyan-300">
+/workspace/
+├── agents/                    # Personal workspaces
+│   ├── builder/
+│   │   └── SOUL.md           # Builder's identity & instructions
+│   ├── reviewer/
+│   │   └── SOUL.md
+│   └── ops/
+│       └── SOUL.md
+└── shared/                    # Cross-agent directories
+    ├── specs/                 # Requirements & specs
+    ├── artifacts/             # Build outputs
+    ├── reviews/               # Review notes
+    └── decisions/             # Architecture decisions
+          </pre>
+        </div>
+        
+        <div class="mt-6 grid md:grid-cols-3 gap-4 text-sm">
+          <div class="p-3 bg-slate-800 rounded-lg">
+            <p class="text-slate-400"><strong class="text-white">Read/Write:</strong> Own workspace</p>
+          </div>
+          <div class="p-3 bg-slate-800 rounded-lg">
+            <p class="text-slate-400"><strong class="text-white">Write Only:</strong> /shared/artifacts/</p>
+          </div>
+          <div class="p-3 bg-slate-800 rounded-lg">
+            <p class="text-slate-400"><strong class="text-white">Read All:</strong> Orchestrator</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Common Pitfalls -->
+    <section>
+      <h2 class="text-2xl font-bold text-white mb-6"><i class="fas fa-exclamation-circle text-red-400 mr-3"></i>Common Pitfalls</h2>
+      
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card rounded-xl p-5 border-l-4 border-red-500">
+          <h4 class="text-white font-medium mb-2">Spawning without clear output paths</h4>
+          <p class="text-sm text-slate-400">Agent produces great work, but you can't find it. Always specify exact output path in spawn prompt.</p>
+        </div>
+        
+        <div class="card rounded-xl p-5 border-l-4 border-red-500">
+          <h4 class="text-white font-medium mb-2">No review step = quality drift</h4>
+          <p class="text-sm text-slate-400">"It's a small change, skip review." Do this 3 times and you have compounding errors.</p>
+        </div>
+        
+        <div class="card rounded-xl p-5 border-l-4 border-red-500">
+          <h4 class="text-white font-medium mb-2">Silent agents create blind spots</h4>
+          <p class="text-sm text-slate-400">Require comments at: start, blocker, handoff, completion. If silent, assume stuck.</p>
+        </div>
+        
+        <div class="card rounded-xl p-5 border-l-4 border-red-500">
+          <h4 class="text-white font-medium mb-2">Orchestrator doing execution work</h4>
+          <p class="text-sm text-slate-400">The orchestrator routes and tracks — it doesn't build. "Just quickly doing this one thing" = lost oversight.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- When NOT to Use ATO -->
+    <section>
+      <h2 class="text-2xl font-bold text-white mb-6"><i class="fas fa-ban text-slate-400 mr-3"></i>When NOT to Use ATO</h2>
+      
+      <div class="card rounded-2xl p-6">
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-times text-slate-500"></i>
+            <p class="text-slate-300"><strong class="text-white">Single-agent setups</strong> — Just follow standard AGENTS.md. Team orchestration adds overhead.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <i class="fas fa-times text-slate-500"></i>
+            <p class="text-slate-300"><strong class="text-white">One-off task delegation</strong> — Use sessions_spawn directly. ATO is for sustained workflows.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <i class="fas fa-times text-slate-500"></i>
+            <p class="text-slate-300"><strong class="text-white">Simple question routing</strong> — Forwarding to a specialist is a message, not a workflow.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Conclusion -->
+    <section class="card rounded-2xl p-8 border-2 border-cyan-500/30">
+      <h2 class="text-2xl font-bold text-white mb-4"><i class="fas fa-flag-checkered text-cyan-400 mr-3"></i>Conclusion</h2>
+      <p class="text-slate-300 leading-relaxed">
+        Agent Team Orchestration provides a <strong>structured, production-ready framework</strong> for multi-agent collaboration. By enforcing role clarity, state-driven task tracking, structured handoffs, and mandatory cross-role reviews, ATO prevents the quality drift and coordination blind spots that plague ad-hoc agent deployments. It's not for every use case — solo agents and one-off tasks don't need it — but for <strong>sustained team workflows</strong> where agents depend on each other's output, ATO is the backbone of reliable multi-agent systems.
+      </p>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-700/50 py-6 mt-12">
+    <div class="max-w-6xl mx-auto px-6 text-center text-slate-500 text-sm">
+      <p>Agent Team Orchestration (ATO) — Deep Dive Report</p>
+      <p class="mt-1">Generated for couuasbot GitHub Pages deployment</p>
+    </div>
+  </footer>
+
 </body>
 </html>
